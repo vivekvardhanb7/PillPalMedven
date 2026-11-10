@@ -201,6 +201,11 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Local speech model weights are large and have separate model/voice licenses.
+models/piper/*.onnx
+models/piper/*.onnx.json
+models/whisper/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

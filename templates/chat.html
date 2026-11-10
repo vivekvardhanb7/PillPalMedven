@@ -1,15 +1,13 @@
-<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
-<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
-<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 	<head>
-		<title>Chatbot</title>
-		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
-		<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css" integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta name="theme-color" content="#f5f6f2">
+		<title>NAF MedAssist | Voice assistant</title>
+		<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css')}}"/>
+		<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
 	</head>
 	
 	
@@ -20,28 +18,55 @@
 					<div class="card">
 						<div class="card-header msg_head">
 							<div class="d-flex bd-highlight">
-								<div class="img_cont">
-									<img src="https://cdn-icons-png.flaticon.com/512/387/387569.png" class="rounded-circle user_img">
-									<!-- <img src="https://www.prdistribution.com/spirit/uploads/pressreleases/2019/newsreleases/d83341deb75c4c4f6b113f27b1e42cd8-chatbot-florence-already-helps-thousands-of-patients-to-remember-their-medication.png" class="rounded-circle user_img"> -->
-									<span class="online_icon"></span>
-								</div>
 								<div class="user_info">
-									<span>Medical Chatbot</span>
-									<p>Ask me anything!</p>
+									<span>NAF MedAssist</span>
+									<p>AI guidance for symptoms and medicine questions.</p>
 								</div>
+								<button type="button" id="resetSession" class="btn btn-sm btn-outline-light ml-auto">End / reset</button>
 							</div>
 						</div>
+						<section class="voice-stage" id="voiceStage" aria-label="Voice conversation">
+							<p class="voice-eyebrow">VOICE MODE</p>
+							<h1>Talk it through</h1>
+							<p class="voice-intro">Speak naturally. The assistant listens for a pause, then replies aloud.</p>
+							<div class="orb-wrap">
+								<span class="orb-ring orb-ring-outer" aria-hidden="true"></span>
+								<span class="orb-ring orb-ring-inner" aria-hidden="true"></span>
+								<button type="button" id="startVoice" class="voice-orb" {% if not voice_enabled %}disabled{% endif %} aria-label="Start voice conversation">
+									<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+										<rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" stroke-width="1.7"/>
+										<path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-3 0h6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+									</svg>
+								</button>
+							</div>
+							<p class="voice-prompt" id="micStatus" role="status" aria-live="polite">Microphone off</p>
+							<div class="voice-status"><span class="voice-status-dot"></span><span id="voiceStateLabel">Ready</span></div>
+						</section>
 						<div id="messageFormeight" class="card-body msg_card_body">
-							
-							
+							<div class="empty-state" id="emptyState">
+								<span class="empty-icon" aria-hidden="true">✦</span>
+								<strong>Your conversation starts here</strong>
+								<span>Type below or start voice mode when you're ready.</span>
+							</div>
 						</div>
 						<div class="card-footer">
 							<form id="messageArea" class="input-group">
-                                <input type="text" id="text" name="msg" placeholder="Type your message..." autocomplete="off" class="form-control type_msg" required/>
+                                <input type="text" id="text" name="msg" placeholder="Write a message..." autocomplete="off" maxlength="4000" class="form-control type_msg" required disabled/>
 								<div class="input-group-append">
-									<button type="submit" id="send" class="input-group-text send_btn"><i class="fas fa-location-arrow"></i></button>
+									<button type="submit" id="send" class="input-group-text send_btn" disabled aria-label="Send message">
+										<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 4 17 8-17 8 3-8-3-8Zm3 8h14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/></svg>
+									</button>
 								</div>
 							</form>
+							<div id="sessionStatus" class="small mt-2" role="status">Starting a private session...</div>
+							<div class="voice_controls mt-2">
+								<label for="language" class="small">Language</label>
+								<select id="language" class="form-control form-control-sm">
+									<option value="en">English</option>
+									<option value="de">Deutsch</option>
+								</select>
+								<div class="small mt-1 voice_privacy">Voice audio is transcribed locally with Whisper and replies are spoken locally with Piper. The transcript and typed messages are sent to Gemini when configured. Audio is not sent to Gemini. Click the microphone to start or stop voice mode; your browser will ask for microphone permission.</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -50,29 +75,488 @@
 		
 		<script>
 			$(document).ready(function() {
-				$("#messageArea").on("submit", function(event) {
-					const date = new Date();
-					const hour = date.getHours();
-					const minute = date.getMinutes();
-					const str_time = hour+":"+minute;
-					var rawText = $("#text").val();
+				let sessionId = null;
+				let accessToken = null;
+				let sessionRevision = 0;
+				let voiceModeEnabled = false;
+				let mediaStream = null;
+				let audioContext = null;
+				let analyser = null;
+				let recorder = null;
+				let vadTimer = null;
+				let discardRecording = false;
+				let voiceRequestController = null;
+				let voiceAudio = null;
+				let voicePlaybackFinish = null;
+				let voiceGeneration = 0;
+				let activeResponseId = null;
+				let requestController = null;
+				let responseGeneration = 0;
+				const voiceEnabled = {{ voice_enabled | tojson }};
+				const $messageArea = $("#messageArea");
+				const $messageInput = $("#text");
+				const $sendButton = $("#send");
+				const $resetButton = $("#resetSession");
+				const $status = $("#sessionStatus");
+				const $micStatus = $("#micStatus");
+				const $startVoice = $("#startVoice");
+				const $voiceStage = $("#voiceStage");
+				const $voiceStateLabel = $("#voiceStateLabel");
 
-					var userHtml = '<div class="d-flex justify-content-end mb-4"><div class="msg_cotainer_send">' + rawText + '<span class="msg_time_send">'+ str_time + '</span></div><div class="img_cont_msg"><img src="https://i.ibb.co/d5b84Xw/Untitled-design.png" class="rounded-circle user_img_msg"></div></div>';
-					
-					$("#text").val("");
-					$("#messageFormeight").append(userHtml);
+				function setVoiceState(state, label) {
+					$voiceStage.removeClass("is-connecting is-listening is-speaking is-error");
+					if (
+						state === "connecting" ||
+						state === "listening" ||
+						state === "speaking" ||
+						state === "error"
+					) {
+						$voiceStage.addClass("is-" + state);
+					}
+					$voiceStateLabel.text(label);
+				}
 
-					$.ajax({
-						data: {
-							msg: rawText,	
+				function stopSpeech() {
+					if (voiceAudio) {
+						const audio = voiceAudio;
+						voiceAudio = null;
+						audio.onended = null;
+						audio.onerror = null;
+						audio.pause();
+						audio.removeAttribute("src");
+						audio.load();
+					}
+					if (voicePlaybackFinish) {
+						voicePlaybackFinish();
+						voicePlaybackFinish = null;
+					}
+				}
+
+				function cancelOutdatedResponse() {
+					responseGeneration += 1;
+					if (requestController) requestController.abort();
+					requestController = null;
+					activeResponseId = null;
+					stopSpeech();
+				}
+
+				function stopVoiceSession(message, state) {
+					voiceModeEnabled = false;
+					voiceGeneration += 1;
+					if (voiceRequestController) voiceRequestController.abort();
+					voiceRequestController = null;
+					cancelOutdatedResponse();
+					if (vadTimer) clearInterval(vadTimer);
+					vadTimer = null;
+					if (recorder && recorder.state !== "inactive") {
+						discardRecording = true;
+						recorder.stop();
+					}
+					recorder = null;
+					if (mediaStream) {
+						mediaStream.getTracks().forEach(function(track) { track.stop(); });
+					}
+					mediaStream = null;
+					if (audioContext) {
+						audioContext.close();
+					}
+					audioContext = null;
+					analyser = null;
+					stopSpeech();
+					$startVoice.attr("aria-label", "Start voice conversation");
+					if (message) $micStatus.text(message);
+					setVoiceState(state || "ready", state === "error" ? "Try again" : "Ready");
+				}
+
+				function addMessage(message, sent, sources) {
+					$("#emptyState").remove();
+					const $row = $("<div>").addClass("d-flex mb-4").addClass(
+						sent ? "justify-content-end" : "justify-content-start"
+					);
+					const $bubble = $("<div>").addClass(
+						sent ? "msg_cotainer_send" : "msg_cotainer"
+					);
+					$("<span>").text(message).appendTo($bubble);
+					if (!sent && sources?.length) {
+						const labels = sources.map(function(source) {
+							return (source.title || source.source_id) + " [" + source.source_id + "]";
+						});
+						$("<small>").addClass("message-sources").text("Sources: " + labels.join("; ")).appendTo($bubble);
+					}
+					$row.append($bubble);
+					$("#messageFormeight").append($row).scrollTop(
+						$("#messageFormeight")[0].scrollHeight
+					);
+				}
+
+				async function speakResponse(data) {
+					if (!voiceEnabled || !voiceModeEnabled) return;
+					if (data.session_revision !== sessionRevision || data.response_id !== activeResponseId) return;
+					const generation = voiceGeneration;
+					$micStatus.text("Generating a local voice reply...");
+					setVoiceState("connecting", "Preparing reply");
+					const response = await fetch("/api/voice/synthesize", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"Authorization": "Bearer " + accessToken
 						},
-						type: "POST",
-						url: "/get",
-					}).done(function(data) {
-						var botHtml = '<div class="d-flex justify-content-start mb-4"><div class="img_cont_msg"><img src="https://cdn-icons-png.flaticon.com/512/387/387569.png" class="rounded-circle user_img_msg"></div><div class="msg_cotainer">' + data + '<span class="msg_time">' + str_time + '</span></div></div>';
-						$("#messageFormeight").append($.parseHTML(botHtml));
+						body: JSON.stringify({
+							session_id: sessionId,
+							language: data.language,
+							text: data.message
+						})
 					});
+					if (!response.ok) {
+						const result = await response.json();
+						throw new Error(result.error?.message || "Local voice playback failed.");
+					}
+					if (!voiceModeEnabled || generation !== voiceGeneration) return;
+					const audioUrl = URL.createObjectURL(await response.blob());
+					const audio = new Audio(audioUrl);
+					voiceAudio = audio;
+					$micStatus.text("Speaking response");
+					setVoiceState("speaking", "Speaking");
+					try {
+						await new Promise(function(resolve, reject) {
+							voicePlaybackFinish = resolve;
+							audio.onended = resolve;
+							audio.onerror = function() {
+								reject(new Error("Could not play the local voice reply."));
+							};
+							audio.play().catch(reject);
+						});
+					} finally {
+						if (voiceAudio === audio) voiceAudio = null;
+						voicePlaybackFinish = null;
+						URL.revokeObjectURL(audioUrl);
+					}
+				}
+
+				function startRecordingSegment() {
+					if (!voiceModeEnabled || !mediaStream || !analyser) return;
+					const preferredTypes = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+					const mimeType = preferredTypes.find(function(type) {
+						return MediaRecorder.isTypeSupported(type);
+					});
+					try {
+						discardRecording = false;
+						recorder = new MediaRecorder(
+							mediaStream,
+							mimeType ? { mimeType: mimeType } : undefined
+						);
+					} catch (_error) {
+						stopVoiceSession("This browser cannot record microphone audio.", "error");
+						return;
+					}
+					const activeRecorder = recorder;
+					const chunks = [];
+					const startedAt = Date.now();
+					let speechStarted = false;
+					let lastSpeechAt = startedAt;
+					const samples = new Uint8Array(analyser.fftSize);
+					activeRecorder.ondataavailable = function(event) {
+						if (event.data.size) chunks.push(event.data);
+					};
+					activeRecorder.onerror = function() {
+						stopVoiceSession("Microphone recording failed. Check its permission.", "error");
+					};
+					activeRecorder.onstop = async function() {
+						if (!voiceModeEnabled || discardRecording) return;
+						const blob = new Blob(chunks, { type: activeRecorder.mimeType || "audio/webm" });
+						if (!speechStarted || blob.size === 0) {
+							startRecordingSegment();
+							return;
+						}
+						await processVoiceRecording(blob);
+					};
+					activeRecorder.start(250);
+					$startVoice.attr("aria-label", "Stop voice conversation");
+					$micStatus.text("Listening. Speak now.");
+					setVoiceState("listening", "Listening");
+					vadTimer = setInterval(function() {
+						if (!voiceModeEnabled || recorder !== activeRecorder) return;
+						analyser.getByteTimeDomainData(samples);
+						let squareSum = 0;
+						for (let index = 0; index < samples.length; index++) {
+							const normalized = (samples[index] - 128) / 128;
+							squareSum += normalized * normalized;
+						}
+						const volume = Math.sqrt(squareSum / samples.length);
+						const now = Date.now();
+						if (volume > 0.02) {
+							speechStarted = true;
+							lastSpeechAt = now;
+						} else if (speechStarted && now - lastSpeechAt > 1500) {
+							clearInterval(vadTimer);
+							vadTimer = null;
+							activeRecorder.stop();
+							$micStatus.text("Transcribing locally...");
+							setVoiceState("connecting", "Transcribing");
+						} else if (now - startedAt > 60000) {
+							clearInterval(vadTimer);
+							vadTimer = null;
+							activeRecorder.stop();
+							$micStatus.text("Transcribing this one-minute turn...");
+							setVoiceState("connecting", "Transcribing");
+						} else if (!speechStarted && now - startedAt > 15000) {
+							$micStatus.text("Still listening. Speak or click the microphone to stop.");
+						}
+					}, 100);
+				}
+
+				async function processVoiceRecording(blob) {
+					const generation = voiceGeneration;
+					const controller = new AbortController();
+					voiceRequestController = controller;
+					const formData = new FormData();
+					formData.append("audio", blob, "voice-recording");
+					formData.append("session_id", sessionId);
+					formData.append("language", $("#language").val());
+					try {
+						const response = await fetch("/api/voice/transcribe", {
+							method: "POST",
+							headers: { "Authorization": "Bearer " + accessToken },
+							body: formData,
+							signal: controller.signal
+						});
+						const result = await response.json();
+						if (!response.ok) {
+							throw new Error(result.error?.message || "Local transcription failed.");
+						}
+						if (!voiceModeEnabled || generation !== voiceGeneration) return;
+						voiceRequestController = null;
+						await sendMessage(result.transcript, true);
+					} catch (error) {
+						if (error.name !== "AbortError" && voiceModeEnabled && generation === voiceGeneration) {
+							stopVoiceSession(error.message, "error");
+						}
+					} finally {
+						if (voiceRequestController === controller) voiceRequestController = null;
+					}
+				}
+
+				async function startSession() {
+					$messageInput.prop("disabled", true);
+					$sendButton.prop("disabled", true);
+					$resetButton.prop("disabled", true);
+					const response = await fetch("/api/sessions", { method: "POST" });
+					if (!response.ok) {
+						throw new Error("Could not start a session. Reload the page to try again.");
+					}
+					const session = await response.json();
+					sessionId = session.session_id;
+					accessToken = session.access_token;
+					sessionRevision = session.session_revision;
+					$messageInput.prop("disabled", false);
+					$sendButton.prop("disabled", false);
+					$resetButton.prop("disabled", false);
+					$status.text("Session is active in memory only. Do not enter identifying information.");
+				}
+
+				async function sendMessage(message, fromVoice) {
+					if (!sessionId || !accessToken) {
+						$status.text("No active session. Reload the page to start a new one.");
+						return;
+					}
+					message = message.trim();
+					if (!message) return;
+					if (!fromVoice && voiceModeEnabled) {
+						stopVoiceSession("Voice mode stopped for typed message.");
+					}
+					cancelOutdatedResponse();
+					const currentGeneration = responseGeneration;
+					const controller = new AbortController();
+					requestController = controller;
+					activeResponseId = null;
+					addMessage(message, true);
+					if (!fromVoice) $messageInput.val("");
+					const currentRequest = {
+						message: message,
+						request_id: crypto.randomUUID(),
+						session_revision: sessionRevision
+					};
+					let data = null;
+
+					try {
+						for (let attempt = 0; attempt < 2; attempt++) {
+							const response = await fetch("/api/chat", {
+								method: "POST",
+								headers: {
+									"Content-Type": "application/json",
+									"Authorization": "Bearer " + accessToken
+								},
+								signal: controller.signal,
+								body: JSON.stringify({
+									session_id: sessionId,
+									request_id: currentRequest.request_id,
+									session_revision: currentRequest.session_revision,
+									language: $("#language").val(),
+									message: message
+								})
+							});
+							data = await response.json();
+							if (response.status === 409 && attempt === 0 &&
+									Number.isInteger(data.error?.current_revision)) {
+								sessionRevision = data.error.current_revision;
+								currentRequest.session_revision = sessionRevision;
+								currentRequest.request_id = crypto.randomUUID();
+								continue;
+							}
+							if (!response.ok) {
+								throw new Error(data.error?.message || "The request could not be processed.");
+							}
+							break;
+						}
+						if (currentGeneration !== responseGeneration) {
+							sessionRevision = Math.max(sessionRevision, data.session_revision);
+							return;
+						}
+						sessionRevision = data.session_revision;
+						activeResponseId = data.response_id;
+						addMessage(data.message, false, data.sources);
+						if (fromVoice) {
+							await speakResponse(data);
+							if (voiceModeEnabled && currentGeneration === responseGeneration) {
+								startRecordingSegment();
+							}
+						}
+					} catch (error) {
+						if (error.name !== "AbortError" && currentGeneration === responseGeneration) {
+							if (fromVoice) {
+								stopVoiceSession(error.message, "error");
+							} else {
+								$messageInput.val(message);
+								$status.text(error.message);
+							}
+						}
+					} finally {
+						if (currentGeneration === responseGeneration) {
+							requestController = null;
+							if (!fromVoice) $messageInput.trigger("focus");
+						}
+					}
+				}
+
+				$messageArea.on("submit", function(event) {
 					event.preventDefault();
+					sendMessage($messageInput.val(), false);
+				});
+
+				$messageInput.on("input", function() {
+					if (!voiceModeEnabled) setVoiceState("ready", "Ready");
+				});
+				$("#language").on("change", function() {
+					document.documentElement.lang = $(this).val();
+					if (voiceModeEnabled) {
+						stopVoiceSession("Language changed. Start voice mode again to continue.");
+					} else {
+						cancelOutdatedResponse();
+						setVoiceState("ready", "Ready");
+					}
+				});
+				$startVoice.on("click", function() {
+					if (voiceModeEnabled) {
+						stopVoiceSession("Microphone off.");
+						return;
+					}
+					if (!voiceEnabled) {
+						$micStatus.text("Voice mode is disabled by the server.");
+						setVoiceState("error", "Not supported");
+						return;
+					}
+					if (
+						!navigator.mediaDevices?.getUserMedia ||
+						!window.MediaRecorder ||
+						!(window.AudioContext || window.webkitAudioContext)
+					) {
+						$micStatus.text("This browser does not support microphone recording.");
+						setVoiceState("error", "Not supported");
+						return;
+					}
+					if (!sessionId || !accessToken) {
+						$micStatus.text("Wait for the private session to start.");
+						return;
+					}
+					const generation = ++voiceGeneration;
+					voiceModeEnabled = true;
+					$startVoice.attr("aria-label", "Stop voice conversation");
+					$micStatus.text("Requesting microphone permission...");
+					setVoiceState("connecting", "Connecting");
+					navigator.mediaDevices.getUserMedia({
+						audio: {
+							echoCancellation: true,
+							noiseSuppression: true,
+							autoGainControl: true
+						}
+					}).then(function(stream) {
+						if (!voiceModeEnabled || generation !== voiceGeneration) {
+							stream.getTracks().forEach(function(track) { track.stop(); });
+							return;
+						}
+						mediaStream = stream;
+						const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+						audioContext = new AudioContextClass();
+						analyser = audioContext.createAnalyser();
+						analyser.fftSize = 1024;
+						audioContext.createMediaStreamSource(mediaStream).connect(analyser);
+						audioContext.resume().then(startRecordingSegment).catch(function() {
+							stopVoiceSession("Could not start microphone audio processing.", "error");
+						});
+					}).catch(function() {
+						if (voiceModeEnabled && generation === voiceGeneration) {
+							stopVoiceSession("Microphone permission was denied or unavailable.", "error");
+						}
+					});
+				});
+
+				$("#resetSession").on("click", async function() {
+					$resetButton.prop("disabled", true);
+					stopVoiceSession("Microphone off.");
+					try {
+						if (sessionId && accessToken) {
+							const response = await fetch("/api/session/reset", {
+								method: "POST",
+								headers: {
+									"Content-Type": "application/json",
+									"Authorization": "Bearer " + accessToken
+								},
+								body: JSON.stringify({ session_id: sessionId })
+							});
+							if (!response.ok && response.status !== 404) {
+								throw new Error("Could not confirm the session was ended. Please try again.");
+							}
+						}
+					} catch (error) {
+						$status.text(error.message);
+						$resetButton.prop("disabled", false);
+						return;
+					}
+					sessionId = null;
+					accessToken = null;
+					sessionRevision = 0;
+					activeResponseId = null;
+					$("#messageFormeight").html(
+						'<div class="empty-state" id="emptyState">' +
+							'<span class="empty-icon" aria-hidden="true">✦</span>' +
+							'<strong>Your conversation starts here</strong>' +
+							'<span>Type below or start voice mode when you are ready.</span>' +
+						'</div>'
+					);
+					$messageInput.val("");
+					$startVoice.prop("disabled", !voiceEnabled);
+					$micStatus.text("Microphone off.");
+					setVoiceState("ready", "Ready");
+					$status.text("Session ended. Starting a new session...");
+					startSession().catch(function(error) {
+						$status.text(error.message);
+					});
+				});
+
+				$startVoice.prop("disabled", !voiceEnabled);
+
+				startSession().catch(function(error) {
+					$status.text(error.message);
 				});
 			});
 		</script>

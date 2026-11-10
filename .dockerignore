@@ -1,0 +1,13 @@
+.env
+.env.*
+.venv
+venv
+.git
+.vscode
+instance
+__pycache__
+*.py[cod]
+.pytest_cache
+research
+data
+tests

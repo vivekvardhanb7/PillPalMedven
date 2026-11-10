@@ -1,8 +1,7 @@
 name: Deploy Application Docker Image to EC2 instance
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 
 jobs:
@@ -55,4 +54,6 @@ jobs:
 
       - name: Run Docker Image to serve users
         run: |
-         docker run -d -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" -e AWS_DEFAULT_REGION="${{ secrets.AWS_DEFAULT_REGION }}" -e PINECONE_API_KEY="${{ secrets.PINECONE_API_KEY }}" -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" -p 8080:8080 "${{ steps.login-ecr.outputs.registry }}"/"${{ secrets.ECR_REPO }}":latest
+         sudo mkdir -p /opt/medassist/instance
+         sudo chown 10001:10001 /opt/medassist/instance
+         docker run -d --restart unless-stopped -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" -e CATALOG_ADMIN_TOKEN="${{ secrets.CATALOG_ADMIN_TOKEN }}" -e RECOMMENDATIONS_ENABLED=true -e PRODUCT_SCOPE_MODE=team_confirmed_catalog -e PLANNED_PRODUCT_COUNT=30 -e LLM_PROVIDER=gemini -e VOICE_ENABLED=true -e RAW_HEALTH_LOGGING_ENABLED=false -v /opt/medassist/instance:/app/instance -p 8080:8080 "${{ steps.login-ecr.outputs.registry }}"/"${{ secrets.ECR_REPO }}":latest
